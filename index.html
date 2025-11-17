@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Gradient Descent Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f7fafc; }
         #gdCanvas {
@@ -12,11 +13,11 @@
             border-radius: 0.5rem;
             background-color: white;
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            display: block;
         }
     </style>
 </head>
 <body class="p-4 sm:p-8 flex flex-col items-center min-h-screen">
-
     <div class="w-full max-w-4xl">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-gray-900">Gradient Descent Demonstrator</h1>
@@ -25,7 +26,9 @@
 
         <main class="grid lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2">
-                <canvas id="gdCanvas" width="600" height="400" class="w-full h-auto"></canvas>
+                <!-- Canvas has fixed internal resolution; CSS will not change pixel size -->
+                <canvas id="gdCanvas" width="600" height="400"></canvas>
+
                 <div class="mt-4 p-4 bg-gray-100 rounded-lg shadow-inner">
                     <p class="text-sm text-gray-700">The blue dots are the dataset. The red line represents the current linear model, which moves during each iteration of the gradient descent algorithm.</p>
                 </div>
@@ -52,20 +55,309 @@
                     <h2 class="text-xl font-semibold mb-4 text-green-700">Controls</h2>
                     <button id="toggleButton" class="w-full py-3 px-4 bg-green-500 text-white rounded-lg shadow-md">Start Descent</button>
                     <button id="resetButton" class="w-full mt-3 py-2 px-4 bg-gray-300 text-gray-800 rounded-lg">Reset</button>
-                    <p class="text-xs text-center text-gray-500 mt-4">Learning Rate (α): 0.01</p>
+                    <p class="text-xs text-center text-gray-500 mt-4">Learning Rate (α): <span id="lrDisplay">0.01</span></p>
                 </div>
             </div>
         </main>
 
-        <!-- Added Link -->
         <div class="text-center mt-10">
             <a href="Neuron.html" class="text-indigo-600 font-semibold hover:underline text-lg">Go to Neuron Visualizer →</a>
         </div>
-
     </div>
 
     <script>
-        // Original JS unchanged (omitted here for brevity)
+    // ---------- Gradient Descent Demo JS ----------
+    (function () {
+        // DOM
+        const canvas = document.getElementById('gdCanvas');
+        const ctx = canvas.getContext('2d');
+        const iterEl = document.getElementById('iterationCount');
+        const costEl = document.getElementById('currentCost');
+        const th0El = document.getElementById('theta0');
+        const th1El = document.getElementById('theta1');
+        const toggleBtn = document.getElementById('toggleButton');
+        const resetBtn = document.getElementById('resetButton');
+        const lrDisplay = document.getElementById('lrDisplay');
+
+        // Canvas DPI scaling for crispness
+        function resizeCanvasForDPR() {
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = canvas.width;
+            const cssH = canvas.height;
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width = cssW * dpr;
+            canvas.height = cssH * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale drawing operations back to CSS pixels
+        }
+        // initial resize
+        resizeCanvasForDPR();
+
+        // Data and model
+        let data = [];           // array of {x, y}
+        let m = 0;
+        let theta0 = 0;
+        let theta1 = 0;
+        let alpha = 0.01;        // learning rate
+        let iteration = 0;
+        let running = false;
+        let rafId = null;
+        const maxIterations = 20000;
+        const iterationsPerFrame = 5; // speed up convergence in animation
+
+        lrDisplay.textContent = alpha.toFixed(3);
+
+        // Create a synthetic dataset (noisy line)
+        function generateData(n = 40) {
+            data = [];
+            // true line: y = 1.5 + 2.0 * x (we'll use x in [0, 10])
+            for (let i = 0; i < n; i++) {
+                const x = Math.random() * 10;
+                // noise
+                const noise = (Math.random() - 0.5) * 4.0;
+                const y = 1.5 + 2.0 * x + noise;
+                data.push({ x, y });
+            }
+            m = data.length;
+        }
+
+        // Compute hypothesis h(x)
+        function h(x) {
+            return theta0 + theta1 * x;
+        }
+
+        // Compute cost J = (1/(2m)) * sum (h(x)-y)^2
+        function computeCost() {
+            if (m === 0) return NaN;
+            let s = 0;
+            for (let i = 0; i < m; i++) {
+                const err = h(data[i].x) - data[i].y;
+                s += err * err;
+            }
+            return s / (2 * m);
+        }
+
+        // Perform one gradient descent step (batch)
+        function gradientStep() {
+            let grad0 = 0;
+            let grad1 = 0;
+            for (let i = 0; i < m; i++) {
+                const xi = data[i].x;
+                const err = h(xi) - data[i].y;
+                grad0 += err;
+                grad1 += err * xi;
+            }
+            grad0 /= m;
+            grad1 /= m;
+            // update
+            theta0 = theta0 - alpha * grad0;
+            theta1 = theta1 - alpha * grad1;
+        }
+
+        // Map data coordinates to canvas pixels
+        function getBounds() {
+            // compute x and y ranges based on data with small padding
+            const xs = data.map(d => d.x);
+            const ys = data.map(d => d.y);
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+            // add padding
+            const padX = (maxX - minX) * 0.08 || 1;
+            const padY = (maxY - minY) * 0.12 || 1;
+            return {
+                minX: minX - padX,
+                maxX: maxX + padX,
+                minY: minY - padY,
+                maxY: maxY + padY
+            };
+        }
+
+        function dataToCanvas(x, y, bounds) {
+            // canvas CSS pixel size (we set style width/height to original width/height)
+            const cssW = parseFloat(canvas.style.width);
+            const cssH = parseFloat(canvas.style.height);
+            const left = 40;    // left margin for nicer look
+            const right = 20;
+            const top = 20;
+            const bottom = 30;
+            const plotW = cssW - left - right;
+            const plotH = cssH - top - bottom;
+            const tX = (x - bounds.minX) / (bounds.maxX - bounds.minX);
+            const tY = (y - bounds.minY) / (bounds.maxY - bounds.minY);
+            const px = left + tX * plotW;
+            const py = top + (1 - tY) * plotH;
+            return { px, py, left, right, top, bottom, plotW, plotH };
+        }
+
+        // Draw function and points
+        function drawScene() {
+            // clear
+            const cssW = parseFloat(canvas.style.width);
+            const cssH = parseFloat(canvas.style.height);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            if (data.length === 0) return;
+
+            const bounds = getBounds();
+
+            // background grid + axes
+            // draw axes box
+            ctx.strokeStyle = '#e6e9ee';
+            ctx.lineWidth = 1;
+            const margins = dataToCanvas(bounds.minX, bounds.minY, bounds);
+            // draw rectangle around plot area
+            ctx.strokeRect(margins.left, margins.top, margins.plotW, margins.plotH);
+
+            // draw points
+            for (let i = 0; i < m; i++) {
+                const { px, py } = dataToCanvas(data[i].x, data[i].y, bounds);
+                ctx.beginPath();
+                ctx.fillStyle = '#2563eb'; // blue
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // draw regression line (two points across x-range)
+            const x1 = bounds.minX;
+            const x2 = bounds.maxX;
+            const y1 = h(x1);
+            const y2 = h(x2);
+            const p1 = dataToCanvas(x1, y1, bounds);
+            const p2 = dataToCanvas(x2, y2, bounds);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.px, p1.py);
+            ctx.lineTo(p2.px, p2.py);
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#ef4444'; // red
+            ctx.stroke();
+
+            // labels (θ and cost)
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillStyle = '#334155';
+            ctx.fillText(`θ0 = ${theta0.toFixed(3)}`, 8, cssH - 8);
+            ctx.fillText(`θ1 = ${theta1.toFixed(3)}`, 120, cssH - 8);
+        }
+
+        // update UI elements
+        function updateUI() {
+            iterEl.textContent = iteration.toString();
+            const cost = computeCost();
+            costEl.textContent = Number.isFinite(cost) ? cost.toFixed(4) : 'N/A';
+            th0El.textContent = theta0.toFixed(3);
+            th1El.textContent = theta1.toFixed(3);
+        }
+
+        // animation loop
+        function loop() {
+            // do a few gradient steps per frame for visible movement but decent speed
+            for (let k = 0; k < iterationsPerFrame; k++) {
+                if (!running) break;
+                if (iteration >= maxIterations) {
+                    running = false;
+                    toggleBtn.textContent = 'Start Descent';
+                    break;
+                }
+                gradientStep();
+                iteration++;
+                // safety: if parameters blow up, stop
+                if (!Number.isFinite(theta0) || !Number.isFinite(theta1) || Math.abs(theta0) > 1e6 || Math.abs(theta1) > 1e6) {
+                    running = false;
+                    toggleBtn.textContent = 'Start Descent';
+                    console.warn('Gradient descent diverged; stopping to avoid overflow.');
+                    break;
+                }
+            }
+
+            drawScene();
+            updateUI();
+
+            if (running) {
+                rafId = requestAnimationFrame(loop);
+            } else {
+                rafId = null;
+            }
+        }
+
+        // Controls
+        toggleBtn.addEventListener('click', function () {
+            if (!running) {
+                // start
+                running = true;
+                toggleBtn.textContent = 'Pause';
+                // start animation loop
+                if (!rafId) {
+                    rafId = requestAnimationFrame(loop);
+                }
+            } else {
+                // pause
+                running = false;
+                toggleBtn.textContent = 'Start Descent';
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = null;
+                }
+            }
+        });
+
+        resetBtn.addEventListener('click', function () {
+            running = false;
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            theta0 = 0;
+            theta1 = 0;
+            iteration = 0;
+            generateData(40);
+            drawScene();
+            updateUI();
+            toggleBtn.textContent = 'Start Descent';
+        });
+
+        // Keyboard shortcuts: Space to start/pause, R to reset
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleBtn.click();
+            } else if (e.key.toLowerCase() === 'r') {
+                resetBtn.click();
+            }
+        });
+
+        // Initialize
+        function init() {
+            // Keep CSS width/height consistent for dataToCanvas mapping:
+            // Set canvas.style.width/height to match initial pixel attributes prior to DPR scaling
+            // We'll set style to the numeric width/height originally set in HTML (600x400)
+            canvas.style.width = '600px';
+            canvas.style.height = '400px';
+            // call DPR resize AFTER style set
+            resizeCanvasForDPR();
+
+            generateData(40);
+            theta0 = 0;
+            theta1 = 0;
+            iteration = 0;
+            running = false;
+            drawScene();
+            updateUI();
+            toggleBtn.textContent = 'Start Descent';
+
+            // Re-resize on window change to keep crispness (retains CSS sizes)
+            window.addEventListener('resize', () => {
+                // keep CSS width same but update pixel buffer for DPR changes or zoom
+                canvas.style.width = '600px';
+                canvas.style.height = '400px';
+                resizeCanvasForDPR();
+                drawScene();
+            });
+        }
+
+        init();
+    })();
     </script>
 </body>
 </html>
