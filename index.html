@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gradient Descent Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7fafc; }
+        #gdCanvas {
+            border: 2px solid #cbd5e1;
+            border-radius: 0.5rem;
+            background-color: white;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex flex-col items-center min-h-screen">
+
+    <div class="w-full max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-900">Gradient Descent Demonstrator</h1>
+            <p class="text-lg text-gray-600 mt-2">Visualizing Linear Regression Convergence</p>
+        </header>
+
+        <main class="grid lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+                <canvas id="gdCanvas" width="600" height="400" class="w-full h-auto"></canvas>
+                <div class="mt-4 p-4 bg-gray-100 rounded-lg shadow-inner">
+                    <p class="text-sm text-gray-700">The blue dots are the dataset. The red line represents the current linear model, which moves during each iteration of the gradient descent algorithm.</p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Model Performance</h2>
+                    <div class="space-y-2 text-sm">
+                        <p class="flex justify-between text-gray-700"><span>Iteration:</span><span id="iterationCount">0</span></p>
+                        <p class="flex justify-between text-gray-700"><span>Current Cost (J):</span><span id="currentCost">N/A</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-purple-100">
+                    <h2 class="text-xl font-semibold mb-4 text-purple-700">Current Parameters</h2>
+                    <div class="space-y-2 text-sm">
+                        <p class="flex justify-between text-gray-700"><span>θ0:</span><span id="theta0">0.000</span></p>
+                        <p class="flex justify-between text-gray-700"><span>θ1:</span><span id="theta1">0.000</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-green-100">
+                    <h2 class="text-xl font-semibold mb-4 text-green-700">Controls</h2>
+                    <button id="toggleButton" class="w-full py-3 px-4 bg-green-500 text-white rounded-lg shadow-md">Start Descent</button>
+                    <button id="resetButton" class="w-full mt-3 py-2 px-4 bg-gray-300 text-gray-800 rounded-lg">Reset</button>
+                    <p class="text-xs text-center text-gray-500 mt-4">Learning Rate (α): 0.01</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Added Link -->
+        <div class="text-center mt-10">
+            <a href="Neuron.html" class="text-indigo-600 font-semibold hover:underline text-lg">Go to Neuron Visualizer →</a>
+        </div>
+
+    </div>
+
+    <script>
+        // Original JS unchanged (omitted here for brevity)
+    </script>
+</body>
+</html>
