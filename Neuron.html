@@ -8,17 +8,26 @@
     input, button { margin: 5px; }
     .layer-config { margin-bottom: 10px; }
     .output { white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 5px; }
+    .matrix { font-family: monospace; background: #fff; padding: 10px; display: inline-block; border: 1px solid #ccc; margin: 5px 0; }
+    .heatmap { display: grid; gap: 2px; margin: 10px 0; }
+    .heat-cell { width: 22px; height: 22px; }
   </style>
 </head>
 <body>
   <h2>🧠 Neural Network Math Visualizer</h2>
 
-  <label>Number of Layers: 
-    <input type="number" id="numLayers" min="1" value="2" />
-  </label>
+  <label>Number of Layers: <input type="number" id="numLayers" min="1" value="2" /></label>
   <button onclick="generateLayerInputs()">Set Layers</button>
 
   <div id="layerInputs" class="layer-config"></div>
+
+  <label>Input Vector: <input id="inputVector" value="1,1,1" /></label><br>
+
+  <label>Activation Function:
+    <select id="activation">
+      <option value="sigmoid">Sigmoid</option>
+    </select>
+  </label><br>
 
   <button onclick="runNetwork()">Run Network</button>
 
@@ -29,69 +38,81 @@
       const container = document.getElementById('layerInputs');
       container.innerHTML = '';
       const numLayers = parseInt(document.getElementById('numLayers').value);
-
       for (let i = 0; i < numLayers; i++) {
-        container.innerHTML += `
-          Layer ${i + 1} neurons: 
-          <input type="number" id="layer${i}" min="1" value="3" /><br>
-        `;
+        container.innerHTML += `Layer ${i + 1} neurons: <input type="number" id="layer${i}" min="1" value="3" /><br>`;
       }
+    }
+
+    function activationFunc(x) {
+      return 1 / (1 + Math.exp(-x));
+    }
+
+    function heatColor(v) {
+      let r = v > 0 ? Math.floor(255 * v) : 0;
+      let b = v < 0 ? Math.floor(-255 * v) : 0;
+      return `rgb(${r},0,${b})`;
     }
 
     function runNetwork() {
       const results = document.getElementById('results');
       results.innerHTML = '';
-      
+
       const numLayers = parseInt(document.getElementById('numLayers').value);
-      
       const layerSizes = [];
       for (let i = 0; i < numLayers; i++) {
         layerSizes.push(parseInt(document.getElementById(`layer${i}`).value));
       }
 
-      // Initial input vector (all ones)
-      let input = Array(layerSizes[0]).fill(1);
-
+      let input = document.getElementById('inputVector').value.split(',').map(Number);
       results.innerHTML += `Input Vector: [${input.join(', ')}]\n\n`;
 
       for (let l = 0; l < numLayers; l++) {
-
-        // FIXED: Store weights as numbers, not strings
         const weights = Array.from({ length: layerSizes[l] }, () =>
-          Array.from({ length: input.length }, () => Math.random() * 2 - 1)
+          Array.from({ length: input.length }, () => (Math.random() * 2 - 1))
         );
 
         const biases = Array.from({ length: layerSizes[l] }, () => Math.random() * 2 - 1);
 
-        const output = [];
+        results.innerHTML += `--- Layer ${l + 1} ---\n`;
 
-        results.innerHTML += `Layer ${l + 1}:\n`;
+        let matrixHTML = '<div class="matrix">W = [\n';
+        weights.forEach(row => {
+          matrixHTML += '  [' + row.map(v => v.toFixed(2)).join(', ') + '],\n';
+        });
+        matrixHTML += ']</div><br>';
+        results.innerHTML += matrixHTML;
+
+        let heat = `<div class='heatmap' style='grid-template-columns: repeat(${input.length}, 22px);'>`;
+        weights.forEach(row => {
+          row.forEach(v => {
+            heat += `<div class='heat-cell' style='background:${heatColor(v)}'></div>`;
+          });
+        });
+        heat += '</div>';
+        results.innerHTML += heat;
+
+        let output = [];
+
+        results.innerHTML += `\nForward Pass Diagram:\n`;
+        results.innerHTML += `Input → W × x + b → z → σ(z)\n\n`;
 
         for (let j = 0; j < layerSizes[l]; j++) {
           let sum = 0;
           let math = `Neuron ${j + 1}: (`;
-
           for (let k = 0; k < input.length; k++) {
             sum += input[k] * weights[j][k];
             math += `${input[k]}×${weights[j][k].toFixed(2)} + `;
           }
-
           sum += biases[j];
-          math += `bias ${biases[j].toFixed(2)}) = ${sum.toFixed(2)}`;
-
-          const activated = activation(sum);
+          math += `bias ${biases[j].toFixed(2)}) = z = ${sum.toFixed(2)}`;
+          const activated = activationFunc(sum);
           output.push(activated);
-
-          results.innerHTML += math + ` → Activation: ${activated.toFixed(2)}\n`;
+          results.innerHTML += math + ` → a = ${activated.toFixed(2)}\n`;
         }
 
         input = output;
         results.innerHTML += `\nOutput of Layer ${l + 1}: [${input.map(x => x.toFixed(2)).join(', ')}]\n\n`;
       }
-    }
-
-    function activation(x) {
-      return 1 / (1 + Math.exp(-x)); // Sigmoid
     }
 
     window.onload = generateLayerInputs;
