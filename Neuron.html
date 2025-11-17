@@ -12,10 +12,16 @@
 </head>
 <body>
   <h2>🧠 Neural Network Math Visualizer</h2>
-  <label>Number of Layers: <input type="number" id="numLayers" min="1" value="2" /></label>
+
+  <label>Number of Layers: 
+    <input type="number" id="numLayers" min="1" value="2" />
+  </label>
   <button onclick="generateLayerInputs()">Set Layers</button>
+
   <div id="layerInputs" class="layer-config"></div>
+
   <button onclick="runNetwork()">Run Network</button>
+
   <div class="output" id="results"></div>
 
   <script>
@@ -23,43 +29,62 @@
       const container = document.getElementById('layerInputs');
       container.innerHTML = '';
       const numLayers = parseInt(document.getElementById('numLayers').value);
+
       for (let i = 0; i < numLayers; i++) {
-        container.innerHTML += `Layer ${i + 1} neurons: <input type="number" id="layer${i}" min="1" value="3" /><br>`;
+        container.innerHTML += `
+          Layer ${i + 1} neurons: 
+          <input type="number" id="layer${i}" min="1" value="3" /><br>
+        `;
       }
     }
 
     function runNetwork() {
       const results = document.getElementById('results');
       results.innerHTML = '';
+      
       const numLayers = parseInt(document.getElementById('numLayers').value);
+      
       const layerSizes = [];
       for (let i = 0; i < numLayers; i++) {
         layerSizes.push(parseInt(document.getElementById(`layer${i}`).value));
       }
 
-      let input = Array(layerSizes[0]).fill(1); // Sample input
-      results.innerHTML += `Input: [${input.join(', ')}]\n\n`;
+      // Initial input vector (all ones)
+      let input = Array(layerSizes[0]).fill(1);
+
+      results.innerHTML += `Input Vector: [${input.join(', ')}]\n\n`;
 
       for (let l = 0; l < numLayers; l++) {
-        const weights = Array(layerSizes[l]).fill().map(() =>
-          Array(input.length).fill().map(() => (Math.random() * 2 - 1).toFixed(2))
+
+        // FIXED: Store weights as numbers, not strings
+        const weights = Array.from({ length: layerSizes[l] }, () =>
+          Array.from({ length: input.length }, () => Math.random() * 2 - 1)
         );
-        const biases = Array(layerSizes[l]).fill().map(() => (Math.random() * 2 - 1).toFixed(2));
+
+        const biases = Array.from({ length: layerSizes[l] }, () => Math.random() * 2 - 1);
+
         const output = [];
 
         results.innerHTML += `Layer ${l + 1}:\n`;
+
         for (let j = 0; j < layerSizes[l]; j++) {
           let sum = 0;
           let math = `Neuron ${j + 1}: (`;
+
           for (let k = 0; k < input.length; k++) {
             sum += input[k] * weights[j][k];
-            math += `${input[k]}×${weights[j][k]} + `;
+            math += `${input[k]}×${weights[j][k].toFixed(2)} + `;
           }
-          sum += parseFloat(biases[j]);
-          math += `bias ${biases[j]}) = ${sum.toFixed(2)}`;
-          output.push(activation(sum));
-          results.innerHTML += math + ` → Activation: ${output[j].toFixed(2)}\n`;
+
+          sum += biases[j];
+          math += `bias ${biases[j].toFixed(2)}) = ${sum.toFixed(2)}`;
+
+          const activated = activation(sum);
+          output.push(activated);
+
+          results.innerHTML += math + ` → Activation: ${activated.toFixed(2)}\n`;
         }
+
         input = output;
         results.innerHTML += `\nOutput of Layer ${l + 1}: [${input.map(x => x.toFixed(2)).join(', ')}]\n\n`;
       }
@@ -70,7 +95,6 @@
     }
 
     window.onload = generateLayerInputs;
-    
   </script>
 </body>
 </html>
